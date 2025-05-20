@@ -49,26 +49,39 @@ class ColecaoViewSet(ModelViewSet):
         documento = request.data.get('documento', None)
         pbs_obj = PublicacaoSeriada.objects.filter(id=publicacao_seriada).first()
         biblio_obj = Biblioteca.objects.filter(id=biblioteca).first()
-        if not publicacao_seriada and not biblioteca:
-            return Response({'mensagem': 'ID da Publicação Seriada e da Biblioteca são obrigatórios'})
 
-        if meio_fisico is not None:
+        if not publicacao_seriada:
+            return Response({'mensagem': 'ID da Publicação Seriada é obrigatório'})
+
+        if not biblioteca:
+            return Response({'mensagem': 'ID da Biblioteca é obrigatório'})
+
+        if meio_fisico:
             meio_fisico = MeioFisico.objects.filter(id=meio_fisico).first()
             if not meio_fisico:
                 return Response({'mensagem': 'O Meio Fisico informado não existe..'})
 
-        colecao = self.queryset.filter(publicacao_seriada=publicacao_seriada, biblioteca=biblioteca).first()
+        colecao = self.queryset.filter(
+            publicacao_seriada=publicacao_seriada,
+            biblioteca=biblioteca,
+            **({'meio_fisico': meio_fisico} if meio_fisico else {})
+        ).first()
+
         if colecao:
-            if conteudo or conteudo != '':
-                colecao.conteudo = conteudo
-                colecao.save()
-            if documento or documento != '':
-                colecao.documento = documento
-                colecao.save()
+            updates = {}
+            if conteudo:
+                updates['conteudo'] = conteudo
+            if documento:
+                updates['documento'] = documento
             if meio_fisico:
-                colecao.meio_fisico = meio_fisico
+                updates['meio_fisico'] = meio_fisico
+
+            if not updates == {}:
+                for attr, value in updates.items():
+                    setattr(colecao, attr, value)
                 colecao.save()
-            return Response({'mensagem': 'Coleção atualizada com sucesso.'})
+                return Response({'mensagem': 'Coleção atualizada com sucesso.'})
+            return Response({'mensagem': 'Não há dados para atualizar esta coleção.'})
         else:
             try:
                 Colecao.objects.create(
